@@ -17,6 +17,8 @@ For RGBT-CC dataset, please download it from this [link](https://lingboliu.com/R
 
 For ShanghaiTech RGB-D dataset, please download it from this [repo](https://github.com/svip-lab/RGBD-Counting).
 
+For UCF-QNRF dataset, please download it from this [link](https://www.crcv.ucf.edu/data/ucf-qnrf/)
+
 ## Usage
 To use our model, follow the code snippet bellow:
 ```bash
@@ -26,18 +28,23 @@ bash test_rgbt_cc.sh
 bash train_shanghai_rgbd.sh
 bash test_shanghai_rgbd.sh
 
-# Train and test IADM model
+# Train and Test IADM model
 bash train_rgbt_cc.sh
 bash test_rgbt_cc.sh
 bash train_shanghai_rgbd.sh
 bash test_shanghai_rgbd.sh
+
+# Train and Test BayesCrowd model
+bash train_ucf.sh
+bash test_ucf.sh
 ```
 
 #### Supported models
-| Models           | RGBT-CC            | ShanghaiTech RGB-D |
-|------------------|--------------------|--------------------|
-| CSCA (ACCV 2022) | :heavy_check_mark: | :heavy_check_mark: |
-| IADM (CVPR 2021) | :heavy_check_mark: | :heavy_check_mark: |
+| Models                 | RGBT-CC            | ShanghaiTech RGB-D | UCF-QNRF           |
+|------------------------|--------------------|--------------------|--------------------|
+| CSCA (ACCV 2022)       | :heavy_check_mark: | :heavy_check_mark: | :x:                |
+| IADM (CVPR 2021)       | :heavy_check_mark: | :heavy_check_mark: | :x:                |
+| BayesCrowd (ICCV 2019) | :x:                | :x:                | :heavy_check_mark: |
 
 ## Citation
 If you find our work useful, please cite the following:

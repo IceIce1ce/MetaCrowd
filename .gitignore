@@ -3,3 +3,5 @@ CSCA/datasets/bayes-RGBT-CC
 CSCA/datasets/RGBT-CC
 IADM/datasets/bayes-RGBT-CC
 IADM/datasets/RGBT-CC
+BayesCrowd/datasets/UCF-QNRF
+BayesCrowd/datasets/UCF-Train-Val-Test
