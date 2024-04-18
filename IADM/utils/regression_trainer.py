@@ -5,10 +5,11 @@ from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 import numpy as np
-from datasets.crowd import Crowd_RGBTCC, Crowd_shanghaiTechRGBD
+from datasets.crowd import Crowd_RGBTCC
 from losses.bay_loss import Bay_Loss
 from losses.post_prob import Post_Prob
-from models.fusion import FusionModel
+from models.BL_IADM import BL_IADM
+from models.CSRNet_IADM import CSRNet_IADM
 
 class AverageMeter(object):
     def __init__(self):
@@ -55,19 +56,15 @@ class RegTrainer():
         self.downsample_ratio = args.downsample_ratio # 8
         self.dataset = args.dataset # RGBT-CC
         # init training dataset
-        if args.dataset == 'ShanghaiTechRGBD':
-            self.datasets = {x: Crowd_shanghaiTechRGBD(os.path.join(args.data_dir, '%s_data' % x), args.crop_size, args.downsample_ratio, x) for x in ['train', 'val', 'test']}
-            self.dataloaders = {x: DataLoader(self.datasets[x], collate_fn=(train_collate if x == 'train' else default_collate), batch_size=(args.batch_size if x == 'train' else 1),
-                                shuffle=(True if x == 'train' else False), num_workers=args.num_workers, pin_memory=(True if x == 'train' else False)) for x in ['train', 'val', 'test']}
-        elif args.dataset == 'RGBTCC':
+        if args.dataset == 'RGBTCC':
             self.datasets = {x: Crowd_RGBTCC(os.path.join(args.data_dir, x), args.crop_size, args.downsample_ratio, x) for x in ['train', 'val', 'test']}
             self.dataloaders = {x: DataLoader(self.datasets[x], collate_fn=(train_collate if x == 'train' else default_collate), batch_size=(args.batch_size if x == 'train' else 1),
                                 shuffle=(True if x == 'train' else False), num_workers=args.num_workers, pin_memory=(True if x == 'train' else False)) for x in ['train', 'val', 'test']}
-        else:
-            print("This dataset does not exist")
-            raise NotImplementedError
         # init model and optimizer
-        self.model = FusionModel()
+        if args.type_model == 'bl':
+            self.model = BL_IADM()
+        elif args.type_model == 'csrnet':
+            self.model = CSRNet_IADM()
         self.model.cuda()
         self.optimizer = optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         self.start_epoch = 0
@@ -94,13 +91,13 @@ class RegTrainer():
         args = self.args
         for epoch in range(self.start_epoch, args.max_epoch):
             self.epoch = epoch
-            self.train_epoch()
+            self.train_eopch()
             if epoch % 1 == 0 and epoch >= args.val_start:
                 game0_is_best, game3_is_best = self.val_epoch()
             if epoch >= args.val_start and (game0_is_best or game3_is_best):
                 self.test_epoch()
-                
-    def train_epoch(self):
+
+    def train_eopch(self):
         print('Start training')
         epoch_loss = AverageMeter()
         epoch_game = AverageMeter()
@@ -108,7 +105,7 @@ class RegTrainer():
         self.model.train()
         for step, (inputs, points, st_sizes) in enumerate(self.dataloaders['train']):
             if type(inputs) == list:
-                inputs[0] = inputs[0].cuda() # [1, 3, 256, 256]
+                inputs[0] = inputs[0].cuda() # [[1, 3, 256, 256]
                 inputs[1] = inputs[1].cuda() # [1, 3, 256, 256]
             else:
                 inputs = inputs.cuda()
@@ -116,7 +113,7 @@ class RegTrainer():
             gd_count = np.array([len(p) for p in points], dtype=np.float32) # [1]
             points = [p.cuda() for p in points]
             with torch.set_grad_enabled(True):
-                outputs = self.model(inputs, self.dataset) # [1, 1, 32, 32]
+                outputs = self.model(inputs) # [1, 1, 32, 32]
                 prob_list = self.post_prob(points, st_sizes) # [4, 1024]
                 loss = self.criterion(prob_list, outputs)
                 self.optimizer.zero_grad()
@@ -126,13 +123,13 @@ class RegTrainer():
                     N = inputs[0].size(0) # 1
                 else:
                     N = inputs.size(0)
-                pre_count = torch.sum(outputs.view(N, -1), dim=1).detach().cpu().numpy() # [1, 1024] -> [1]
+                pre_count = torch.sum(outputs.view(N, -1), dim=1).detach().cpu().numpy()
                 res = pre_count - gd_count
                 epoch_loss.update(loss.item(), N)
                 epoch_mse.update(np.mean(res * res), N)
                 epoch_game.update(np.mean(abs(res)), N)
         print('Epoch: {}, Loss: {:.4f}, GAME0: {:.4f}. MSE: {:.4f}'.format(self.epoch, epoch_loss.get_avg(), epoch_game.get_avg(), np.sqrt(epoch_mse.get_avg())))
-        # save at each epoch just for using resume training
+        # save at each epoch just for using reume training
         # model_state_dic = self.model.state_dict()
         # save_path = os.path.join(self.save_dir, '{}_ckpt.tar'.format(self.epoch))
         # torch.save({'epoch': self.epoch, 'optimizer_state_dict': self.optimizer.state_dict(), 'model_state_dict': model_state_dic}, save_path)
@@ -154,7 +151,7 @@ class RegTrainer():
             else:
                 assert inputs.size(0) == 1, 'the batch size should equal to 1 in validation mode'
             with torch.set_grad_enabled(False):
-                outputs = self.model(inputs, self.dataset) # [1, 1, 60, 80]
+                outputs = self.model(inputs) # [1, 1, 60, 80]
                 for L in range(4):
                     abs_error, square_error = eval_game(outputs, target, L)
                     game[L] += abs_error
@@ -187,13 +184,13 @@ class RegTrainer():
                 inputs[0] = inputs[0].cuda() # [1, 3, 480, 640]
                 inputs[1] = inputs[1].cuda() # [1, 3, 480, 640]
             else:
-                inputs = inputs.cuda()
+                inputs = inputs.cuda() # [1, 3, 480, 640]
             if type(inputs) == list:
                 assert inputs[0].size(0) == 1
             else:
                 assert inputs.size(0) == 1, 'the batch size should equal to 1 in validation mode'
             with torch.set_grad_enabled(False):
-                outputs = self.model(inputs, self.dataset)
+                outputs = self.model(inputs)
                 for L in range(4):
                     abs_error, square_error = eval_game(outputs, target, L)
                     game[L] += abs_error

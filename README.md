@@ -25,13 +25,19 @@ bash train_rgbt_cc.sh
 bash test_rgbt_cc.sh
 bash train_shanghai_rgbd.sh
 bash test_shanghai_rgbd.sh
+
+# Train and test IADM model
+bash train_rgbt_cc.sh
+bash test_rgbt_cc.sh
+bash train_shanghai_rgbd.sh
+bash test_shanghai_rgbd.sh
 ```
 
 #### Supported models
-------------------------------------------------------
 | Models           | RGBT-CC            | ShanghaiTech RGB-D |
 |------------------|--------------------|--------------------|
 | CSCA (ACCV 2022) | :heavy_check_mark: | :heavy_check_mark: |
+| IADM (CVPR 2021) | :heavy_check_mark: | :heavy_check_mark: |
 
 ## Citation
 If you find our work useful, please cite the following:
